@@ -15,19 +15,19 @@
    'in1 ; Might want multiple copies of this as we get lots of instructions
    'integer_+
    'integer_-
-   'integer_*
-   'integer_%
-   'integer_mod
+  ;  'integer_*
+  ;  'integer_%
+  ;  'integer_mod
    ; Do we want this? Nic votes against because it seems to provide *too*
    ; much help on the problem, and isn't something that's available in most
    ; programming languages.
    ; 'integer_divisible_by
    'integer_=
-   'integer_zero?
-   'integer_to_string
+  ;  'integer_zero?
+  ;  'integer_to_string
   ;  'integer_dup
   ;  'integer_empty?
-  ;  'integer_depth
+   'integer_depth
    'exec_dup
    'exec_if
    'boolean_and
@@ -37,28 +37,29 @@
   ;  'boolean_dup
   ;  'boolean_depth
   ;  'boolean_empty?
-  ;  'string_=
-  ;  'string_take
-  ;  'string_drop
+   'string_=
+   'string_take
+   'string_drop
   ;  'string_reverse
    'string_concat
-  ;  'string_length
-  ;  'string_includes?
-  ;  'string_depth
-  ;  'string_empty?
-  ;  'string_dup
+   'string_length
+   'string_includes?
+   'string_depth
+   'string_empty?
+   'string_dup
+   'string_substring
    'close
-   0
-   3
-   5
+  ;  0
+  ;  3
+  ;  5
   ; I (Nic) didn't include this. Some problem descriptions include 15,
   ; where others use language like "both" instead. I figure I'll
   ; start with the harder version.
   ; 15
    true
    false
-   "Fizz"
-   "Buzz"
+  ;  "Fizz"
+  ;  "Buzz"
   ; I (Nic) think there are good arguments for including this (it seems to
   ; be explicitly included in many problem statements), but I think
   ; the problem is more interesting/impressive without it.
@@ -289,6 +290,13 @@
 (defn string_includes?
   [state]
   (make-push-instruction state clojure.string/includes? [:string :string] :boolean))
+
+(defn string_substring
+  [state]
+    (make-push-instruction state
+                           #(apply str (subs %1 %2 %3))
+                           [:string :integer :integer]
+                           :string))
 
 ;;;;;;;;;
 ;; Interpreter
@@ -528,64 +536,79 @@
            :errors errors
            :total-error (apply +' errors))))
 
-;;;;;;;;;;;;;;;;;;;;;;;
-;; Fizz-Buzz fitness
-
-(defn to-fizz-buzz
-  [n]
-  (cond
-    (zero? (rem n 15)) "FizzBuzz"
-    (zero? (rem n 3)) "Fizz"
-    (zero? (rem n 5)) "Buzz"
-    :else (str n)))
-
-(def fizz-buzz-training
-  (map to-fizz-buzz (range 100)))
-
 (defn num-extra-chars 
   [max-error correct-output actual-output]
   (min max-error
        (- (count actual-output) (count correct-output))))
 
-; The error we'll return if the program doesn't return a
-; string that at least contains the desired output as a
-; substring. 
-(def fizz-buzz-failure-error 100)
+;; LRMUS Levenshtein Distance error
+(defn compute-next-row
+  "computes the next row using the prev-row current-element and the other seq"
+  [prev-row current-element other-seq pred]
+  (reduce
+   (fn [row [diagonal above other-element]]
+     (let [update-val (if (pred other-element current-element)
+                         ;; if the elements are deemed equivalent according to the predicate
+                         ;; pred, then no change has taken place to the string, so we are
+                         ;; going to set it the same value as diagonal (which is the previous edit-distance)
+                        diagonal
+                         ;; in the case where the elements are not considered equivalent, then we are going
+                         ;; to figure out if its a substitution (then there is a change of 1 from the previous
+                         ;; edit distance) thus the value is diagonal + 1 or if its a deletion, then the value
+                         ;; is present in the columns, but not in the rows, the edit distance is the edit-distance
+                         ;; of last of row + 1 (since we will be using vectors, peek is more efficient)
+                         ;; or it could be a case of insertion, then the value is above+1, and we chose
+                         ;; the minimum of the three
+                        (inc (min diagonal above (peek row))))]
 
-(defn fizzbuzz-case-error
-  [actual-output]
+       (conj row update-val)))
+    ;; we need to initialize the reduce function with the value of a row, since we are
+    ;; constructing this row from the previous one, the row is a vector of 1 element which
+    ;; consists of 1 + the first element in the previous row (edit distance between the prefix so far
+    ;; and an empty string)
+   [(inc (first prev-row))]
+    ;; for the reduction to go over, we need to provide it with three values, the diagonal
+    ;; which is the same as prev-row because it starts from 0, the above, which is the next element
+    ;; from the list and finally the element from the other sequence itself.
+   (map vector prev-row (next prev-row) other-seq)))
+
+(defn levenshtein-distance
+  "Levenshtein Distance - http://en.wikipedia.org/wiki/Levenshtein_distance
+     In information theory and computer science, the Levenshtein distance is a
+     metric for measuring the amount of difference between two sequences. This
+     is a functional implementation of the levenshtein edit
+     distance with as little mutability as possible.
+     Still maintains the O(n*m) guarantee."
+  [a b & {p :predicate  :or {p =}}]
   (cond
-    (every? #(clojure.string/includes? actual-output %) ["Fizz" "Buzz"])
-    (+ 10 (num-extra-chars 5 "FizzBuzz" actual-output))
-    (some #(clojure.string/includes? actual-output %) ["Fizz" "Buzz"])
-    (+ 20 (num-extra-chars 10 "FizzBuzz" actual-output))
-    :else fizz-buzz-failure-error))
+    (empty? a) (count b)
+    (empty? b) (count a)
+    :else (peek
+           (reduce
+              ;; we use a simple reduction to convert the previous row into the next-row  using the
+              ;; compute-next-row which takes a current element, the previous-row computed so far
+              ;; and the predicate to compare for equality.
+            (fn [prev-row current-element]
+              (compute-next-row prev-row current-element b p))
+              ;; we need to initialize the prev-row with the edit distance between the various prefixes of
+              ;; b and the empty string.
+            (range (inc (count b)))
+            a))))
 
-(defn fizz-buzz-error-jackson
-  "Given the correct output and the actual output, returns an error
-   value"
-  [correct-output actual-output]
-  (cond
-    ; If there is nothing on the string stack return a substantial penalty.
-    (= actual-output :no-stack-item) (* 10 fizz-buzz-failure-error)
-    ; If the actual output contains the expected output, the error
-    ; is the number of extra characters, capped at 20.
-    (clojure.string/includes? actual-output correct-output) 
-    (num-extra-chars 20 correct-output actual-output)
-    ; If the target output is "FizzBuzz" we'll handle that
-    ; separately.
-    (= correct-output "FizzBuzz") (fizzbuzz-case-error actual-output)
-    ; Otherwise we didn't output anything containing the target
-    ; output, so we'll return fizz-buzz-failure-error.
-    :else fizz-buzz-failure-error))
+(defn read-in-inputs
+  []
+  (map str (vec (line-seq (clojure.java.io/reader "data0.txt")))))
 
-(defn fizz-buzz-error-function
-  "Finds the behaviors and errors of a given individual on
-   the FizzBuzz problem"
+(defn read-in-outputs
+  []
+  (map str (vec (line-seq (clojure.java.io/reader "out0.txt")))))
+
+;; LRMUS STUFF
+(defn m-lrmus-error-function
   [argmap individual]
   (let [program (push-from-plushy (:plushy individual))
-        inputs (range 100)
-        correct-outputs fizz-buzz-training
+        inputs (read-in-inputs)
+        correct-outputs (read-in-outputs)
         outputs (map (fn [input]
                        (peek-stack
                         (interpret-program
@@ -594,7 +617,7 @@
                          (:step-limit argmap))
                         :string))
                      inputs)
-        errors (map fizz-buzz-error-jackson
+        errors (map #(levenshtein-distance (str %1) (str %2))
                     correct-outputs
                     outputs)]
     (assoc individual
@@ -637,7 +660,7 @@
   [& args]
   (binding [*ns* (the-ns 'propel.core)]
     (propel-gp (update-in (merge {:instructions default-instructions
-                                  :error-function fizz-buzz-error-function
+                                  :error-function m-lrmus-error-function
                                   :max-generations 500
                                   :population-size 200
                                   :max-initial-plushy-size 50

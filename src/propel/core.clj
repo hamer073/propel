@@ -49,9 +49,19 @@
    'string_dup
    'string_substring
    'close
-  ;  0
-  ;  3
-  ;  5
+   0
+   1
+   2
+   3
+   4
+   5
+   6
+   7
+   8
+   9
+   'string_iterator
+   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+   "abcdefghijklmnopqrstuvwxyz"
   ; I (Nic) didn't include this. Some problem descriptions include 15,
   ; where others use language like "both" instead. I figure I'll
   ; start with the harder version.
@@ -78,6 +88,7 @@
    :integer '()
    :string '()
    :boolean '()
+   :char '()
    :input {}})
 
 (defn abs
@@ -294,9 +305,27 @@
 (defn string_substring
   [state]
     (make-push-instruction state
-                           #(apply str (subs %1 %2 %3))
+                           #(if (and (> %3 %2) (> %2 0) (< %3 (count %1))) (apply str (subs %1 %2 %3)) %1)
                            [:string :integer :integer]
                            :string))
+
+(defn string_iterator [state] (if (or (empty? (:string state))
+                                      (empty? (:exec state)))
+                                state
+                                (let [s (peek-stack state :string)]
+                                  (cond
+                                    (empty? s) (-> state
+                                                    (pop-stack :string)
+                                                    (pop-stack :exec))
+                                    (empty? (rest s)) (-> state
+                                                           (pop-stack :string)
+                                                           (push-to-stack :char (first s)))
+                                    :else (-> state
+                                               (pop-stack :string)
+                                               (push-to-stack :exec 'string_iterator)
+                                               (push-to-stack :exec (apply str (rest s)))
+                                               (push-to-stack :exec (peek-stack state :exec))
+                                               (push-to-stack :char (first s)))))))
 
 ;;;;;;;;;
 ;; Interpreter

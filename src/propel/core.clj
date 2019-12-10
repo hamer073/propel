@@ -624,6 +624,18 @@
             (range (inc (count b)))
             a))))
 
+;; Custom LRMUS Fitness Function
+;; The goal of this function is to reward individuals that can produce a unique substring, even if it isn't the shortest
+;; We also hope to punish individuals who have a substring of the target string less thanreturning the complete wrong string
+(defn lrmus-fitness
+  "String one is the expected string, while string two is string from the individual"
+  [stringOne stringTwo]
+  (cond
+    (empty? stringTwo) 1000
+    (clojure.string/includes? stringTwo stringOne) (+ 10 (- (count stringTwo) (count stringOne)))
+    (clojure.string/includes? stringOne stringTwo) (+ 50 (- (count stringOne) (count stringTwo)))
+    :else 500))
+
 (defn read-in-inputs
   []
   (map str (vec (line-seq (clojure.java.io/reader "data0.txt")))))
@@ -646,7 +658,7 @@
                          (:step-limit argmap))
                         :string))
                      inputs)
-        errors (map #(levenshtein-distance (str %1) (str %2))
+        errors (map #(lrmus-fitness (str %1) (str %2))
                     correct-outputs
                     outputs)]
     (assoc individual

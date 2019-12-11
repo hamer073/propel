@@ -634,8 +634,9 @@
   [stringOne stringTwo]
   (cond
     (empty? stringTwo) 1000
-    (clojure.string/includes? stringTwo stringOne) (+ 50 (- (count stringTwo) (count stringOne)))
-    (clojure.string/includes? stringOne stringTwo) (+ 50 (- (count stringOne) (count stringTwo)))
+    (= stringOne stringTwo) 0
+    (clojure.string/includes? stringTwo stringOne) (+ 50 (levenshtein-distance stringTwo stringOne))
+    (clojure.string/includes? stringOne stringTwo) (+ 100 (levenshtein-distance stringOne stringTwo))
     :else 500))
 
 (defn read-in-inputs
@@ -660,7 +661,7 @@
                          (:step-limit argmap))
                         :string))
                      inputs)
-        errors (map #(levenshtein-distance (str %1) (str %2));;#(lrmus-fitness (str %1) (str %2))
+        errors (map #(lrmus-fitness (str %1) (str %2))
                     correct-outputs
                     outputs)]
     (assoc individual

@@ -48,6 +48,9 @@
    'string_empty?
    'string_dup
    'string_substring
+   'string_iterator
+   'string_iterator
+   'string_iterator
    'close
    0
    1
@@ -59,9 +62,8 @@
    7
    8
    9
-   'string_iterator
-   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-   "abcdefghijklmnopqrstuvwxyz"
+   ;"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+   ;"abcdefghijklmnopqrstuvwxyz"
   ; I (Nic) didn't include this. Some problem descriptions include 15,
   ; where others use language like "both" instead. I figure I'll
   ; start with the harder version.
@@ -632,17 +634,17 @@
   [stringOne stringTwo]
   (cond
     (empty? stringTwo) 1000
-    (clojure.string/includes? stringTwo stringOne) (+ 10 (- (count stringTwo) (count stringOne)))
+    (clojure.string/includes? stringTwo stringOne) (+ 50 (- (count stringTwo) (count stringOne)))
     (clojure.string/includes? stringOne stringTwo) (+ 50 (- (count stringOne) (count stringTwo)))
     :else 500))
 
 (defn read-in-inputs
   []
-  (map str (vec (line-seq (clojure.java.io/reader "data0.txt")))))
+  (map str (vec (line-seq (clojure.java.io/reader "data1.txt")))))
 
 (defn read-in-outputs
   []
-  (map str (vec (line-seq (clojure.java.io/reader "out0.txt")))))
+  (map str (vec (line-seq (clojure.java.io/reader "out1.txt")))))
 
 ;; LRMUS STUFF
 (defn m-lrmus-error-function
@@ -658,7 +660,7 @@
                          (:step-limit argmap))
                         :string))
                      inputs)
-        errors (map #(lrmus-fitness (str %1) (str %2))
+        errors (map #(levenshtein-distance (str %1) (str %2));;#(lrmus-fitness (str %1) (str %2))
                     correct-outputs
                     outputs)]
     (assoc individual

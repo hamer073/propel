@@ -1,5 +1,6 @@
 (ns propel.core
-  (:gen-class))
+  (:gen-class)
+  (import LRS))
 
 (def example-push-state
   {:exec '()
@@ -18,10 +19,6 @@
   ;  'integer_*
   ;  'integer_%
   ;  'integer_mod
-   ; Do we want this? Nic votes against because it seems to provide *too*
-   ; much help on the problem, and isn't something that's available in most
-   ; programming languages.
-   ; 'integer_divisible_by
    'integer_=
   ;  'integer_zero?
   ;  'integer_to_string
@@ -48,34 +45,14 @@
    'string_empty?
    'string_dup
    'string_substring
+   'string_LRS
    'string_iterator
-   'string_iterator
-   'string_iterator
+   'string_index
    'close
    0
    1
-   2
-   3
-   4
-   5
-   6
-   7
-   8
-   9
-   ;"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-   ;"abcdefghijklmnopqrstuvwxyz"
-  ; I (Nic) didn't include this. Some problem descriptions include 15,
-  ; where others use language like "both" instead. I figure I'll
-  ; start with the harder version.
-  ; 15
    true
    false
-  ;  "Fizz"
-  ;  "Buzz"
-  ; I (Nic) think there are good arguments for including this (it seems to
-  ; be explicitly included in many problem statements), but I think
-  ; the problem is more interesting/impressive without it.
-  ; "FizzBuzz"
    ))
 
 (def opens ; number of blocks opened by instructions (default = 0)
@@ -300,6 +277,28 @@
   [state]
   (make-push-instruction state count [:string] :integer))
 
+; Gets longest repeated substring using Java LRS file
+(defn make_LRS
+  [s]
+  (. LRS lrs s))
+
+; Takes string of string stack and puts LRS back on string stack
+(defn string_LRS
+  [state]
+  (make-push-instruction state make_LRS [:string] :string))
+
+(defn string_index
+
+  [state]
+
+  (make-push-instruction state
+
+                         #(if (clojure.string/index-of %1 %2) (clojure.string/index-of %1 %2) -1)
+
+                         [:string :string]
+
+                         :integer))
+
 (defn string_includes?
   [state]
   (make-push-instruction state clojure.string/includes? [:string :string] :boolean))
@@ -504,7 +503,7 @@
                                 (make-random-plushy instructions
                                                     max-initial-plushy-size)))]
     (let [evaluated-pop (sort-by :total-error
-                                 (map (partial error-function argmap)
+                                 (pmap (partial error-function argmap)
                                       population))]
       (report evaluated-pop generation)
       (cond
@@ -514,58 +513,6 @@
                      (repeatedly population-size 
                                  #(new-individual evaluated-pop argmap)))))))
 
-;;;;;;;;;
-;; Problem: f(x) = 7x^2 - 20x + 13
-
-(defn target-function-hard
-  "Target function: f(x) = 7x^2 - 20x + 13"
-  [x]
-  (+ (* 7 x x)
-     (* -20 x)
-     13))
-
-(defn target-function
-  "Target function: f(x) = x^3 + x + 3"
-  [x]
-  (+ (* x x x)
-     x
-     3))
-
-(defn target-function-class
-  [x]
-  (+' (*' 7 x x x x x x x)
-      (*' 7 x x x x x x)
-      (*' (/ 7 2) x x x x x)
-      (*' (/ 7 3) x x x x)
-      (*' x x x)
-      (*' 3 x x)
-      (*' (/ 3 7) x)
-      49))
-
-(defn regression-error-function
-  "Finds the behaviors and errors of the individual."
-  [argmap individual]
-  (let [program (push-from-plushy (:plushy individual))
-        inputs (range -10 11)
-        correct-outputs (map target-function-hard inputs)
-        outputs (map (fn [input]
-                       (peek-stack
-                        (interpret-program
-                         program
-                         (assoc empty-push-state :input {:in1 input})
-                         (:step-limit argmap))
-                        :integer))
-                     inputs)
-        errors (map (fn [correct-output output]
-                      (if (= output :no-stack-item)
-                        1000000000
-                        (abs (-' correct-output output))))
-                    correct-outputs
-                    outputs)]
-    (assoc individual
-           :behaviors outputs
-           :errors errors
-           :total-error (apply +' errors))))
 
 (defn num-extra-chars 
   [max-error correct-output actual-output]
@@ -661,7 +608,7 @@
                          (:step-limit argmap))
                         :string))
                      inputs)
-        errors (map #(lrmus-fitness (str %1) (str %2))
+        errors (map #(levenshtein-distance (str %1) (str %2))
                     correct-outputs
                     outputs)]
     (assoc individual

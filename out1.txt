@@ -1,3 +1,10 @@
+a
+aa
+aaa
+b
+bb
+bbb
+ba
 ani
 land 
 an

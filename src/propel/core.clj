@@ -661,7 +661,7 @@
                          (:step-limit argmap))
                         :string))
                      inputs)
-        errors (map #(lrmus-fitness (str %1) (str %2))
+        errors (map #(levenshtein-distance (str %1) (str %2))
                     correct-outputs
                     outputs)]
     (assoc individual
@@ -705,8 +705,8 @@
   (binding [*ns* (the-ns 'propel.core)]
     (propel-gp (update-in (merge {:instructions default-instructions
                                   :error-function m-lrmus-error-function
-                                  :max-generations 500
-                                  :population-size 200
+                                  :max-generations 1000
+                                  :population-size 1000
                                   :max-initial-plushy-size 50
                                   :step-limit 100
                                   :parent-selection :lexicase
